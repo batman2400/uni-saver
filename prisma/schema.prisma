@@ -1,0 +1,105 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                 String             @id @default(uuid())
+  name               String
+  email              String             @unique
+  passwordHash       String
+  role               String             @default("STUDENT") // STUDENT | ADMIN
+  institutionId      String?
+  institution        Institution?       @relation(fields: [institutionId], references: [id])
+  emailVerified      Boolean            @default(false)
+  emailVerifyToken   String?
+  studentIdImage     String?
+  verificationStatus String             @default("UNVERIFIED") // UNVERIFIED | PENDING | APPROVED | REJECTED
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  redemptions        Redemption[]
+  notifications      UserNotification[]
+}
+
+model Institution {
+  id    String @id @default(uuid())
+  name  String @unique
+  type  String // SCHOOL | UNIVERSITY
+  users User[]
+}
+
+model Category {
+  id          String  @id @default(uuid())
+  name        String  @unique
+  slug        String  @unique
+  icon        String
+  description String?
+  brands      Brand[]
+  offers      Offer[]
+}
+
+model Brand {
+  id          String   @id @default(uuid())
+  name        String
+  logo        String?
+  description String?
+  website     String?
+  categoryId  String
+  category    Category @relation(fields: [categoryId], references: [id])
+  offers      Offer[]
+  createdAt   DateTime @default(now())
+}
+
+model Offer {
+  id                 String       @id @default(uuid())
+  title              String
+  description        String
+  discount           String
+  terms              String?
+  brandId            String
+  brand              Brand        @relation(fields: [brandId], references: [id])
+  categoryId         String
+  category           Category     @relation(fields: [categoryId], references: [id])
+  expiresAt          DateTime?
+  isActive           Boolean      @default(true)
+  maxRedemptions     Int?
+  currentRedemptions Int          @default(0)
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+  redemptions        Redemption[]
+}
+
+model Redemption {
+  id         String   @id @default(uuid())
+  offerId    String
+  offer      Offer    @relation(fields: [offerId], references: [id])
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  promoCode  String   @unique
+  redeemedAt DateTime @default(now())
+}
+
+model Notification {
+  id        String             @id @default(uuid())
+  title     String
+  message   String
+  sentBy    String?
+  createdAt DateTime           @default(now())
+  users     UserNotification[]
+}
+
+model UserNotification {
+  id             String       @id @default(uuid())
+  notificationId String
+  notification   Notification @relation(fields: [notificationId], references: [id])
+  userId         String
+  user           User         @relation(fields: [userId], references: [id])
+  read           Boolean      @default(false)
+  readAt         DateTime?
+
+  @@unique([notificationId, userId])
+}
