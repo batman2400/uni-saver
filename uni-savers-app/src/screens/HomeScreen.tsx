@@ -19,7 +19,7 @@ export default function HomeScreen({ navigation }: any) {
                 api.get('/offers') // In a real app we might pass a limit or sorting param for 'trending'
             ]);
             setCategories(catRes.data || []);
-            setTrendingOffers((offRes.data || []).slice(0, 5)); // Just grabbing a few for trending
+            setTrendingOffers((offRes.data?.offers || []).slice(0, 5)); // Just grabbing a few for trending
         } catch (error) {
             console.error('Failed to fetch home data:', error);
         } finally {
@@ -66,7 +66,11 @@ export default function HomeScreen({ navigation }: any) {
                         <Text style={[globalStyles.title, { fontSize: 20, marginBottom: 12 }]}>Curated Sectors</Text>
                         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 32 }}>
                             {categories.map((cat, index) => (
-                                <TouchableOpacity key={cat.id} style={{ marginRight: 12, alignItems: 'center' }}>
+                                <TouchableOpacity
+                                    key={cat.id}
+                                    style={{ marginRight: 12, alignItems: 'center' }}
+                                    onPress={() => navigation.navigate('Offers', { category: cat.name })}
+                                >
                                     <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: colors.surfaceHighlight, alignItems: 'center', justifyContent: 'center', marginBottom: 8, borderWidth: 1, borderColor: colors.border }}>
                                         <Text style={{ fontSize: 24 }}>{cat.icon}</Text>
                                     </View>
@@ -81,6 +85,7 @@ export default function HomeScreen({ navigation }: any) {
                             <TouchableOpacity
                                 key={offer.id}
                                 style={[globalStyles.glassCard, { marginBottom: 16, flexDirection: 'row', alignItems: 'center' }]}
+                                onPress={() => navigation.navigate('OfferDetail', { offerId: offer.id })}
                             >
                                 <View style={{ width: 50, height: 50, borderRadius: 12, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', marginRight: 16 }}>
                                     <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 20 }}>{offer.brand?.name?.charAt(0) || 'B'}</Text>

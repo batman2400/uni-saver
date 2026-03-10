@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Only students can verify' }, { status: 403 });
         }
 
-        const formData = await request.formData();
+        const formData = await request.formData() as any;
         const file = formData.get('studentId') as File;
 
         if (!file) {

@@ -4,14 +4,14 @@ import { getSession } from '@/lib/auth';
 
 export async function GET(request: NextRequest) {
     try {
-        const session = await getSession();
+        const session = await getSession(request);
         if (!session?.user) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
         const user = session.user as any;
 
-        if (user.role !== 'STUDENT') {
+        if (user.role !== 'STUDENT' && user.role !== 'ADMIN') {
             return NextResponse.json({ error: 'Not a student' }, { status: 403 });
         }
 

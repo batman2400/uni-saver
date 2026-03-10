@@ -2,7 +2,27 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/options';
 import { NextResponse } from 'next/server';
 
-export async function getSession() {
+import { NextRequest } from 'next/server';
+import jwt from 'jsonwebtoken';
+
+const JWT_SECRET = process.env.NEXTAUTH_SECRET || 'fallback-secret-for-dev';
+
+export async function getSession(req?: NextRequest) {
+    // 1. Check for Mobile JWT Header
+    if (req) {
+        const authHeader = req.headers.get('authorization');
+        if (authHeader && authHeader.startsWith('Bearer ')) {
+            const token = authHeader.split(' ')[1];
+            try {
+                const decoded = jwt.verify(token, JWT_SECRET) as any;
+                return { user: decoded };
+            } catch (err) {
+                console.error("Invalid mobile JWT token", err);
+            }
+        }
+    }
+
+    // 2. Fall back to NextAuth Web Session (Cookies)
     return await getServerSession(authOptions);
 }
 

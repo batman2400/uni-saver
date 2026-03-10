@@ -67,7 +67,10 @@ function RootNavigator() {
     return (
         <Stack.Navigator screenOptions={{ headerShown: false }}>
             {user ? (
-                <Stack.Screen name="Main" component={TabNavigator} />
+                <>
+                    <Stack.Screen name="Main" component={TabNavigator} />
+                    <Stack.Screen name="OfferDetail" component={OfferDetailScreen} />
+                </>
             ) : (
                 <>
                     <Stack.Screen name="Login" component={LoginScreen} />

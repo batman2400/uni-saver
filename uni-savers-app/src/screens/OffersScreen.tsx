@@ -3,22 +3,35 @@ import { View, Text, FlatList, TextInput, TouchableOpacity, ActivityIndicator } 
 import { globalStyles, colors } from '../theme';
 import api from '../api/client';
 
-export default function OffersScreen({ navigation }: any) {
+export default function OffersScreen({ route, navigation }: any) {
     const [offers, setOffers] = useState<any[]>([]);
     const [filteredOffers, setFilteredOffers] = useState<any[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
     const [loading, setLoading] = useState(true);
 
+    const incomingCategory = route.params?.category || '';
+
     useEffect(() => {
         fetchOffers();
-    }, []);
+    }, [incomingCategory]);
 
     const fetchOffers = async () => {
         try {
             const res = await api.get('/offers');
             const data = res.data || [];
+
             setOffers(data);
-            setFilteredOffers(data);
+
+            // Auto-filter if a category was passed from Home
+            if (incomingCategory) {
+                setSearchQuery(incomingCategory);
+                setFilteredOffers(data.filter((o: any) =>
+                    o.category?.name?.toLowerCase().includes(incomingCategory.toLowerCase()) ||
+                    o.brand?.name?.toLowerCase().includes(incomingCategory.toLowerCase())
+                ));
+            } else {
+                setFilteredOffers(data);
+            }
         } catch (error) {
             console.error('Failed to fetch offers:', error);
         } finally {
