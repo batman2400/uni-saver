@@ -5,7 +5,7 @@ import { getSession } from '@/lib/auth';
 // GET: Get notification history
 export async function GET(request: NextRequest) {
     try {
-        const session = await getSession();
+        const session = await getSession(request);
         if (!session?.user || (session.user as any).role !== 'ADMIN') {
             return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
         }
@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
 // POST: Send notification to all students
 export async function POST(request: NextRequest) {
     try {
-        const session = await getSession();
+        const session = await getSession(request);
         if (!session?.user || (session.user as any).role !== 'ADMIN') {
             return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
         }
@@ -83,3 +83,4 @@ export async function POST(request: NextRequest) {
         );
     }
 }
+

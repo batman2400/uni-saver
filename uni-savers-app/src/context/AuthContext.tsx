@@ -15,6 +15,7 @@ type AuthContextType = {
     isLoading: boolean;
     login: (token: string, userData: User) => Promise<void>;
     logout: () => Promise<void>;
+    updateUser: (partial: Partial<User>) => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -53,6 +54,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
     };
 
+    const updateUser = async (partial: Partial<User>) => {
+        try {
+            const updated = user ? { ...user, ...partial } : null;
+            if (updated) {
+                await AsyncStorage.setItem('userData', JSON.stringify(updated));
+                setUser(updated);
+            }
+        } catch (error) {
+            console.error('Error updating user data', error);
+        }
+    };
+
     const logout = async () => {
         try {
             await AsyncStorage.removeItem('userToken');
@@ -64,7 +77,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
 
     return (
-        <AuthContext.Provider value={{ user, isLoading, login, logout }}>
+        <AuthContext.Provider value={{ user, isLoading, login, logout, updateUser }}>
             {children}
         </AuthContext.Provider>
     );

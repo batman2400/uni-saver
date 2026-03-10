@@ -1,104 +1,158 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, RefreshControl, TouchableOpacity, ActivityIndicator } from 'react-native';
+import React, { useEffect, useState, useCallback } from 'react';
+import {
+    View, Text, ScrollView, RefreshControl, TouchableOpacity,
+    ActivityIndicator, StatusBar,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { globalStyles, colors } from '../theme';
 import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
 
 export default function HomeScreen({ navigation }: any) {
-    const { user, logout } = useAuth();
+    const { user } = useAuth();
     const [categories, setCategories] = useState<any[]>([]);
     const [trendingOffers, setTrendingOffers] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    const [error, setError] = useState('');
 
-    const fetchData = async () => {
+    const fetchData = useCallback(async () => {
         try {
-            // Reusing the public API routes nextjs already has
+            setError('');
             const [catRes, offRes] = await Promise.all([
                 api.get('/categories'),
-                api.get('/offers') // In a real app we might pass a limit or sorting param for 'trending'
+                api.get('/offers?limit=6'),
             ]);
-            setCategories(catRes.data || []);
-            setTrendingOffers((offRes.data?.offers || []).slice(0, 5)); // Just grabbing a few for trending
-        } catch (error) {
-            console.error('Failed to fetch home data:', error);
+            setCategories(Array.isArray(catRes.data) ? catRes.data : []);
+            const offers = Array.isArray(offRes.data) ? offRes.data : (offRes.data?.offers || []);
+            setTrendingOffers(offers.slice(0, 6));
+        } catch {
+            setError('Could not load data. Pull down to retry.');
         } finally {
             setLoading(false);
             setRefreshing(false);
         }
-    };
-
-    useEffect(() => {
-        fetchData();
     }, []);
 
-    const onRefresh = () => {
+    useEffect(() => { fetchData(); }, [fetchData]);
+
+    const onRefresh = useCallback(() => {
         setRefreshing(true);
         fetchData();
-    };
+    }, [fetchData]);
+
+    const isVerified = user?.verificationStatus === 'APPROVED';
+    const isPending = user?.verificationStatus === 'PENDING';
 
     return (
-        <View style={globalStyles.container}>
-            <View style={{ paddingHorizontal: 20, paddingTop: 60, paddingBottom: 10, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+        <SafeAreaView style={globalStyles.container} edges={['top']}>
+            <StatusBar barStyle="light-content" />
+            {/* Header */}
+            <View style={{ paddingHorizontal: 24, paddingTop: 8, paddingBottom: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                 <View>
-                    <Text style={[globalStyles.text, { fontSize: 14, color: colors.textMuted }]}>Welcome back,</Text>
-                    <Text style={{ fontSize: 24, fontWeight: '900', color: colors.textMain }}>{user?.name?.split(' ')[0] || 'Student'}!</Text>
+                    <Text style={{ fontSize: 13, color: colors.textMuted, fontWeight: '500' }}>Welcome back 👋</Text>
+                    <Text style={{ fontSize: 26, fontWeight: '900', color: colors.textMain, marginTop: 2 }}>
+                        {user?.name?.split(' ')[0] || 'Student'}
+                    </Text>
                 </View>
-                <TouchableOpacity onPress={logout} style={{ padding: 8, backgroundColor: 'rgba(239, 68, 68, 0.1)', borderRadius: 8 }}>
-                    <Text style={{ color: colors.error, fontWeight: 'bold' }}>Log Out</Text>
-                </TouchableOpacity>
+                {isVerified ? (
+                    <View style={{ backgroundColor: 'rgba(16,185,129,0.12)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(16,185,129,0.3)' }}>
+                        <Text style={{ color: colors.success, fontSize: 12, fontWeight: '700' }}>✓ Verified</Text>
+                    </View>
+                ) : (
+                    <TouchableOpacity
+                        onPress={() => navigation.navigate('Profile')}
+                        style={{ backgroundColor: 'rgba(139,92,246,0.12)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(139,92,246,0.3)' }}
+                    >
+                        <Text style={{ color: colors.primaryLight, fontSize: 12, fontWeight: '700' }}>
+                            {isPending ? '⏳ Pending' : '+ Verify ID'}
+                        </Text>
+                    </TouchableOpacity>
+                )}
             </View>
 
             <ScrollView
-                contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
+                contentContainerStyle={{ paddingBottom: 40 }}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+                showsVerticalScrollIndicator={false}
             >
-                <View style={[globalStyles.glassCard, { marginBottom: 24, backgroundColor: 'rgba(139, 92, 246, 0.1)', borderColor: colors.primary }]}>
-                    <Text style={{ color: colors.primaryLight, fontSize: 18, fontWeight: 'bold', marginBottom: 4 }}>Verify your Status</Text>
-                    <Text style={{ color: colors.textMuted, fontSize: 14 }}>Upload your Student ID to unlock premium discounts immediately.</Text>
-                </View>
+                {/* Verification Banner (only for unverified) */}
+                {!isVerified && !isPending && (
+                    <TouchableOpacity
+                        onPress={() => navigation.navigate('Profile')}
+                        style={{ marginHorizontal: 24, marginBottom: 24, backgroundColor: 'rgba(139,92,246,0.08)', borderRadius: 16, padding: 18, borderWidth: 1, borderColor: 'rgba(139,92,246,0.25)', flexDirection: 'row', alignItems: 'center', gap: 12 }}
+                    >
+                        <Text style={{ fontSize: 28 }}>📋</Text>
+                        <View style={{ flex: 1 }}>
+                            <Text style={{ color: colors.primaryLight, fontSize: 15, fontWeight: '700', marginBottom: 2 }}>Verify your Student ID</Text>
+                            <Text style={{ color: colors.textMuted, fontSize: 13 }}>Upload your ID to unlock all discounts</Text>
+                        </View>
+                        <Text style={{ color: colors.textMuted }}>›</Text>
+                    </TouchableOpacity>
+                )}
 
-                {loading && !refreshing ? (
-                    <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 40 }} />
+                {loading ? (
+                    <View style={{ paddingTop: 40, alignItems: 'center' }}>
+                        <ActivityIndicator color={colors.primary} size="large" />
+                    </View>
+                ) : error ? (
+                    <View style={{ paddingTop: 60, alignItems: 'center', paddingHorizontal: 24 }}>
+                        <Text style={{ fontSize: 40, marginBottom: 12 }}>📡</Text>
+                        <Text style={{ color: colors.textMuted, textAlign: 'center' }}>{error}</Text>
+                    </View>
                 ) : (
                     <>
-                        {/* Categories Horizontal Scroll */}
-                        <Text style={[globalStyles.title, { fontSize: 20, marginBottom: 12 }]}>Curated Sectors</Text>
-                        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 32 }}>
-                            {categories.map((cat, index) => (
+                        {/* Categories */}
+                        <View style={{ marginBottom: 32 }}>
+                            <Text style={{ paddingHorizontal: 24, fontSize: 18, fontWeight: '800', color: colors.textMain, marginBottom: 16 }}>Explore Categories</Text>
+                            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 24, gap: 12 }}>
+                                {categories.map(cat => (
+                                    <TouchableOpacity
+                                        key={cat.id}
+                                        style={{ alignItems: 'center', width: 72 }}
+                                        onPress={() => navigation.navigate('Offers', { category: cat.name })}
+                                        activeOpacity={0.7}
+                                    >
+                                        <View style={{ width: 64, height: 64, borderRadius: 20, backgroundColor: colors.surfaceHighlight, alignItems: 'center', justifyContent: 'center', marginBottom: 8, borderWidth: 1, borderColor: colors.border }}>
+                                            <Text style={{ fontSize: 26 }}>{cat.icon}</Text>
+                                        </View>
+                                        <Text style={{ color: colors.textMain, fontSize: 10, fontWeight: '600', textAlign: 'center' }} numberOfLines={2}>{cat.name}</Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </ScrollView>
+                        </View>
+
+                        {/* Trending Offers */}
+                        <View style={{ paddingHorizontal: 24 }}>
+                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                                <Text style={{ fontSize: 18, fontWeight: '800', color: colors.textMain }}>🔥 Trending Now</Text>
+                                <TouchableOpacity onPress={() => navigation.navigate('Offers', {})}>
+                                    <Text style={{ color: colors.primaryLight, fontSize: 13, fontWeight: '600' }}>See all</Text>
+                                </TouchableOpacity>
+                            </View>
+                            {trendingOffers.map(offer => (
                                 <TouchableOpacity
-                                    key={cat.id}
-                                    style={{ marginRight: 12, alignItems: 'center' }}
-                                    onPress={() => navigation.navigate('Offers', { category: cat.name })}
+                                    key={offer.id}
+                                    activeOpacity={0.75}
+                                    style={{ backgroundColor: colors.surface, borderRadius: 16, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: colors.border, flexDirection: 'row', alignItems: 'center' }}
+                                    onPress={() => navigation.navigate('OfferDetail', { offerId: offer.id })}
                                 >
-                                    <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: colors.surfaceHighlight, alignItems: 'center', justifyContent: 'center', marginBottom: 8, borderWidth: 1, borderColor: colors.border }}>
-                                        <Text style={{ fontSize: 24 }}>{cat.icon}</Text>
+                                    <View style={{ width: 48, height: 48, borderRadius: 14, backgroundColor: colors.primary + '33', alignItems: 'center', justifyContent: 'center', marginRight: 14 }}>
+                                        <Text style={{ color: colors.primaryLight, fontWeight: '900', fontSize: 18 }}>{offer.brand?.name?.charAt(0) || 'B'}</Text>
                                     </View>
-                                    <Text style={{ color: colors.textMain, fontSize: 12, fontWeight: '600' }}>{cat.name}</Text>
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={{ color: colors.textMain, fontSize: 15, fontWeight: '700', marginBottom: 3 }} numberOfLines={1}>{offer.title}</Text>
+                                        <Text style={{ color: colors.textMuted, fontSize: 12 }}>{offer.brand?.name} • <Text style={{ color: colors.success, fontWeight: '700' }}>{offer.discount}</Text></Text>
+                                    </View>
+                                    <View style={{ backgroundColor: colors.primary + '22', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 }}>
+                                        <Text style={{ color: colors.primaryLight, fontSize: 11, fontWeight: '700' }}>{offer.discount}</Text>
+                                    </View>
                                 </TouchableOpacity>
                             ))}
-                        </ScrollView>
-
-                        {/* Trending Offers Vertical List */}
-                        <Text style={[globalStyles.title, { fontSize: 20, marginBottom: 16 }]}>Trending Now</Text>
-                        {trendingOffers.map(offer => (
-                            <TouchableOpacity
-                                key={offer.id}
-                                style={[globalStyles.glassCard, { marginBottom: 16, flexDirection: 'row', alignItems: 'center' }]}
-                                onPress={() => navigation.navigate('OfferDetail', { offerId: offer.id })}
-                            >
-                                <View style={{ width: 50, height: 50, borderRadius: 12, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', marginRight: 16 }}>
-                                    <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 20 }}>{offer.brand?.name?.charAt(0) || 'B'}</Text>
-                                </View>
-                                <View style={{ flex: 1 }}>
-                                    <Text style={{ color: colors.textMain, fontSize: 16, fontWeight: 'bold' }}>{offer.title}</Text>
-                                    <Text style={{ color: colors.textMuted, fontSize: 13, marginTop: 4 }}>{offer.brand?.name} • <Text style={{ color: colors.success }}>{offer.discount}</Text></Text>
-                                </View>
-                            </TouchableOpacity>
-                        ))}
+                        </View>
                     </>
                 )}
             </ScrollView>
-        </View>
+        </SafeAreaView>
     );
 }

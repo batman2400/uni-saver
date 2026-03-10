@@ -2,18 +2,30 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
-// Assuming simulator for now (localhost loopback) or local IP for physical devices
-// 192.168.1.9 is the local IP of the development machine.
-const API_URL = 'http://192.168.1.9:3000/api';
+// On Android emulator, 10.0.2.2 maps to the host machine's localhost.
+// On iOS simulator, localhost works directly.
+// On a physical device, use your machine's actual local network IP.
+const getBaseUrl = () => {
+    if (__DEV__) {
+        if (Platform.OS === 'android') {
+            // Android emulator — use 10.0.2.2 for localhost
+            // OR use your machine's actual network IP for physical devices
+            return 'http://192.168.37.44:3000/api';
+        }
+        return 'http://192.168.37.44:3000/api'; // iOS / physical device
+    }
+    return 'https://your-production-server.com/api'; // production
+};
 
 const api = axios.create({
-    baseURL: API_URL,
+    baseURL: getBaseUrl(),
+    timeout: 15000,
     headers: {
         'Content-Type': 'application/json',
     },
 });
 
-// Request interceptor to attach JWT token
+// Attach JWT token to every request
 api.interceptors.request.use(
     async (config) => {
         const token = await AsyncStorage.getItem('userToken');
@@ -22,7 +34,17 @@ api.interceptors.request.use(
         }
         return config;
     },
-    (error) => {
+    (error) => Promise.reject(error)
+);
+
+// Global response interceptor: handle 401s (token expired / invalid)
+api.interceptors.response.use(
+    (response) => response,
+    async (error) => {
+        if (error.response?.status === 401) {
+            // Clear stored credentials — AuthContext will redirect to Login
+            await AsyncStorage.multiRemove(['userToken', 'userData']);
+        }
         return Promise.reject(error);
     }
 );

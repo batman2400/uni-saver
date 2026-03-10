@@ -1,12 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { getSession } from '@/lib/auth';
-import { writeFile, mkdir } from 'fs/promises';
-import path from 'path';
+import { v2 as cloudinary } from 'cloudinary';
+
+// Configure Cloudinary using directly injected environment variables
+cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET
+});
 
 export async function POST(request: NextRequest) {
     try {
-        const session = await getSession();
+        const session = await getSession(request);
         if (!session?.user) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
@@ -41,22 +47,28 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Save file
-        const uploadDir = path.join(process.cwd(), 'uploads', 'student-ids');
-        await mkdir(uploadDir, { recursive: true });
-
-        const ext = file.name.split('.').pop();
-        const fileName = `${user.id}-${Date.now()}.${ext}`;
-        const filePath = path.join(uploadDir, fileName);
-
         const bytes = await file.arrayBuffer();
-        await writeFile(filePath, Buffer.from(bytes));
+        const buffer = Buffer.from(bytes);
 
-        // Update user
+        // Upload to Cloudinary using an upload stream
+        const uploadResult = await new Promise((resolve, reject) => {
+            const uploadStream = cloudinary.uploader.upload_stream(
+                { folder: 'unisavers_student_ids' },
+                (error, result) => {
+                    if (error) reject(error);
+                    else resolve(result);
+                }
+            );
+            uploadStream.end(buffer);
+        }) as any;
+
+        const secureUrl = uploadResult.secure_url;
+
+        // Update user in database
         await prisma.user.update({
             where: { id: user.id },
             data: {
-                studentIdImage: `/uploads/student-ids/${fileName}`,
+                studentIdImage: secureUrl,
                 verificationStatus: 'PENDING',
             },
         });
@@ -76,7 +88,7 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
     try {
-        const session = await getSession();
+        const session = await getSession(request);
         if (!session?.user) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }

@@ -41,7 +41,14 @@ export default function OfferDetailScreen({ route, navigation }: any) {
 
         try {
             const res = await api.post(`/offers/${offerId}/redeem`);
-            setRedemptionData(res.data);
+            // Backend returns { message, redemption: { promoCode, redeemedAt, ... } }
+            // Also handle the "already redeemed" case which has the same redemption shape
+            const data = res.data;
+            const redemptionInfo = data.redemption || data;
+            setRedemptionData({
+                promoCode: redemptionInfo.promoCode,
+                qrData: redemptionInfo.promoCode, // QR encodes the promo code itself
+            });
             setShowModal(true);
         } catch (err: any) {
             setError(err.response?.data?.error || 'Failed to redeem offer.');

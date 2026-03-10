@@ -5,7 +5,7 @@ import { getSession } from '@/lib/auth';
 // GET: List notifications for the current user
 export async function GET(request: NextRequest) {
     try {
-        const session = await getSession();
+        const session = await getSession(request);
         if (!session?.user) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
 // PATCH: Mark notification as read
 export async function PATCH(request: NextRequest) {
     try {
-        const session = await getSession();
+        const session = await getSession(request);
         if (!session?.user) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
@@ -65,3 +65,4 @@ export async function PATCH(request: NextRequest) {
         );
     }
 }
+

@@ -5,7 +5,7 @@ import { getSession } from '@/lib/auth';
 // GET: List all offers (admin)
 export async function GET(request: NextRequest) {
     try {
-        const session = await getSession();
+        const session = await getSession(request);
         if (!session?.user || (session.user as any).role !== 'ADMIN') {
             return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
         }
@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
 // POST: Create new offer
 export async function POST(request: NextRequest) {
     try {
-        const session = await getSession();
+        const session = await getSession(request);
         if (!session?.user || (session.user as any).role !== 'ADMIN') {
             return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
         }
@@ -59,3 +59,4 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Failed to create offer' }, { status: 500 });
     }
 }
+

@@ -1,13 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { globalStyles, colors } from '../theme';
 import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
 
 export default function ProfileScreen({ navigation }: any) {
-    const { user, logout } = useAuth();
+    const { user, logout, updateUser } = useAuth();
     const [redemptions, setRedemptions] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [uploading, setUploading] = useState(false);
 
     useEffect(() => {
         fetchProfileData();
@@ -16,7 +18,7 @@ export default function ProfileScreen({ navigation }: any) {
     const fetchProfileData = async () => {
         try {
             const res = await api.get('/student/redemptions');
-            setRedemptions(res.data || []);
+            setRedemptions(Array.isArray(res.data) ? res.data : []);
         } catch (error) {
             console.error('Failed to fetch profile data', error);
         } finally {
@@ -24,24 +26,51 @@ export default function ProfileScreen({ navigation }: any) {
         }
     };
 
-    const handleUploadID = () => {
-        // In a real device environment, we would use expo-image-picker here.
-        // For the sake of this prototype, we'll simulate the upload.
-        Alert.alert(
-            "Upload ID",
-            "This would open the native Image Picker to snap a photo of your Student ID.",
-            [{ text: "Simulate Upload", onPress: simulateUpload }, { text: "Cancel", style: "cancel" }]
-        );
-    };
+    const handleUploadID = async () => {
+        // Request permission
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') {
+            Alert.alert('Permission Required', 'Please allow access to your photo library to upload your student ID.');
+            return;
+        }
 
-    const simulateUpload = async () => {
-        Alert.alert("Success", "Student ID uploaded and is pending review by administrators.");
+        const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: true,
+            quality: 0.8,
+        });
+
+        if (result.canceled) return;
+
+        const asset = result.assets[0];
+
+        setUploading(true);
+        try {
+            const formData = new FormData();
+            formData.append('studentId', {
+                uri: asset.uri,
+                name: asset.fileName || 'student_id.jpg',
+                type: asset.mimeType || 'image/jpeg',
+            } as any);
+
+            await api.post('/student/verify', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' },
+            });
+
+            // Update the user status optimistically
+            await updateUser({ verificationStatus: 'PENDING' });
+            Alert.alert('✅ Uploaded!', 'Your student ID is pending admin review. You will be notified once approved.');
+        } catch (err: any) {
+            Alert.alert('Upload Failed', err.response?.data?.error || 'Could not upload your student ID. Please try again.');
+        } finally {
+            setUploading(false);
+        }
     };
 
     const handleLogout = () => {
-        Alert.alert("Log Out", "Are you sure you want to log out?", [
-            { text: "Cancel", style: "cancel" },
-            { text: "Log Out", onPress: logout, style: "destructive" }
+        Alert.alert('Log Out', 'Are you sure you want to log out?', [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Log Out', onPress: logout, style: 'destructive' },
         ]);
     };
 
@@ -51,6 +80,15 @@ export default function ProfileScreen({ navigation }: any) {
             case 'PENDING': return colors.accent;
             case 'REJECTED': return colors.error;
             default: return colors.textMuted;
+        }
+    };
+
+    const getStatusLabel = (status: string) => {
+        switch (status) {
+            case 'APPROVED': return '✅ Verified';
+            case 'PENDING': return '⏳ Pending Review';
+            case 'REJECTED': return '❌ Rejected';
+            default: return '⚠️ Unverified';
         }
     };
 
@@ -67,7 +105,7 @@ export default function ProfileScreen({ navigation }: any) {
                         <Text style={{ color: colors.textMuted, fontSize: 14, marginBottom: 8 }}>{user?.email}</Text>
                         <View style={{ backgroundColor: 'rgba(255,255,255,0.05)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, alignSelf: 'flex-start' }}>
                             <Text style={{ color: getStatusColor(user?.verificationStatus || 'UNVERIFIED'), fontSize: 12, fontWeight: 'bold' }}>
-                                {user?.verificationStatus || 'UNVERIFIED'}
+                                {getStatusLabel(user?.verificationStatus || 'UNVERIFIED')}
                             </Text>
                         </View>
                     </View>
@@ -80,14 +118,30 @@ export default function ProfileScreen({ navigation }: any) {
                     <Text style={{ color: colors.textMain, fontSize: 16, fontWeight: 'bold', textAlign: 'center', marginBottom: 8 }}>Student ID Card</Text>
                     <Text style={{ color: colors.textMuted, textAlign: 'center', marginBottom: 20, paddingHorizontal: 20 }}>
                         {user?.verificationStatus === 'APPROVED'
-                            ? "Your identity is verified. You have full access to all privileges."
-                            : "Upload a clear photo of your university ID card to unlock premium discounts."}
+                            ? 'Your identity is verified. You have full access to all privileges.'
+                            : user?.verificationStatus === 'PENDING'
+                                ? 'Your ID is under review. We will approve it shortly.'
+                                : 'Upload a clear photo of your university ID card to unlock premium discounts.'}
                     </Text>
 
-                    {user?.verificationStatus !== 'APPROVED' && (
-                        <TouchableOpacity style={[globalStyles.button, { width: '80%', backgroundColor: colors.surfaceHighlight, borderWidth: 1, borderColor: colors.primary }]} onPress={handleUploadID}>
-                            <Text style={{ color: colors.primaryLight, fontWeight: 'bold' }}>Upload Document</Text>
+                    {user?.verificationStatus !== 'APPROVED' && user?.verificationStatus !== 'PENDING' && (
+                        <TouchableOpacity
+                            style={[globalStyles.button, { width: '80%', backgroundColor: uploading ? colors.surfaceHighlight : colors.primary, opacity: uploading ? 0.7 : 1 }]}
+                            onPress={handleUploadID}
+                            disabled={uploading}
+                        >
+                            {uploading ? (
+                                <ActivityIndicator color="#fff" />
+                            ) : (
+                                <Text style={globalStyles.buttonText}>📎 Upload Document</Text>
+                            )}
                         </TouchableOpacity>
+                    )}
+
+                    {user?.verificationStatus === 'PENDING' && (
+                        <View style={{ backgroundColor: 'rgba(34, 211, 238, 0.1)', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 12, borderWidth: 1, borderColor: colors.accent }}>
+                            <Text style={{ color: colors.accent, fontSize: 13, textAlign: 'center' }}>⏳ Your ID is being reviewed by our team</Text>
+                        </View>
                     )}
                 </View>
 
@@ -107,7 +161,7 @@ export default function ProfileScreen({ navigation }: any) {
                                 <Text style={{ color: colors.textMain, fontWeight: 'bold', fontSize: 16, marginBottom: 4 }}>{r.offer?.title}</Text>
                                 <Text style={{ color: colors.textMuted, fontSize: 12 }}>Redeemed {new Date(r.redeemedAt).toLocaleDateString()}</Text>
                             </View>
-                            <Text style={{ color: colors.secondaryLight, fontWeight: '900', letterSpacing: 1 }}>{r.promoCode}</Text>
+                            <Text style={{ color: colors.primaryLight, fontWeight: '900', letterSpacing: 1, fontSize: 12 }}>{r.promoCode}</Text>
                         </View>
                     ))
                 )}
