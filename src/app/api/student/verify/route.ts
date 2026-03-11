@@ -3,6 +3,8 @@ import prisma from '@/lib/prisma';
 import { getSession } from '@/lib/auth';
  const dynamic = 'force-dynamic';
 
+export const dynamic = 'force-dynamic';
+
 // Configure Cloudinary using directly injected environment variables
 cloudinary.config({
     cloud_name: process.env.CLOUDINARY_CLOUD_NAME,

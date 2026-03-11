@@ -3,6 +3,8 @@ import prisma from '@/lib/prisma';
 import { getSession } from '@/lib/auth';
  const dynamic = 'force-dynamic';
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(
     request: NextRequest,
     { params }: { params: Promise<{ id: string }> }
