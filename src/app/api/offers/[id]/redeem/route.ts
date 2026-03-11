@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { getSession } from '@/lib/auth';
-import { v4 as uuidv4 } from 'uuid';
+ const dynamic = 'force-dynamic';
 
 export async function POST(
     request: NextRequest,

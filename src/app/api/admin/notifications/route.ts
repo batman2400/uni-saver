@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { getSession } from '@/lib/auth';
+ const dynamic = 'force-dynamic';
 
 // GET: Get notification history
 export async function GET(request: NextRequest) {

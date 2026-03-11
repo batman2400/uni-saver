@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { getSession } from '@/lib/auth';
-import { v2 as cloudinary } from 'cloudinary';
+ const dynamic = 'force-dynamic';
 
 // Configure Cloudinary using directly injected environment variables
 cloudinary.config({
